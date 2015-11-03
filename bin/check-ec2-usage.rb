@@ -23,7 +23,7 @@
 require 'sensu-plugin/check/cli'
 require 'aws-sdk'
 
-class CheckEc2Usage< Sensu::Plugin::Check::CLI
+class CheckEc2Usage < Sensu::Plugin::Check::CLI
   option :aws_access_key,
          short:       '-a AWS_ACCESS_KEY',
          long:        '--aws-access-key AWS_ACCESS_KEY',
@@ -92,7 +92,7 @@ class CheckEc2Usage< Sensu::Plugin::Check::CLI
   def usage_metric(instance)
     cloud_watch.get_metric_statistics(
       namespace: 'AWS/EC2',
-      metric_name: "CPUUtilization",
+      metric_name: 'CPUUtilization',
       dimensions: [
         {
           name: 'InstanceId',
@@ -124,7 +124,7 @@ class CheckEc2Usage< Sensu::Plugin::Check::CLI
     elsif !metric_value.nil?
       ok "#{config[:direction]} at #{metric_value}% CPU usage over the specified period"
     else
-      ok "No data found"
+      ok 'No data found'
     end
   end
 end
