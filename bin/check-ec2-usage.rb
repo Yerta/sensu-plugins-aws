@@ -3,7 +3,7 @@
 # check-ec2-usage
 #
 # DESCRIPTION:
-#   Check EC2 Network Metrics by CloudWatch API.
+#   Check EC2 CPU Metrics by CloudWatch API.
 #
 # OUTPUT:
 #   plain-text
@@ -16,16 +16,8 @@
 #   gem: sensu-plugin
 #
 # USAGE:
-#   ./check-ec2-usage.rb -r ${you_region} -i ${your_instance_id} --warning-over 1000000 --critical-over 1500000
-#   ./check-ec2-usage.rb -r ${you_region} -i ${your_instance_id} -d NetworkIn --warning-over 1000000 --critical-over 1500000
-#   ./check-ec2-usage.rb -r ${you_region} -i ${your_instance_id} -d NetworkOut --warning-over 1000000 --critical-over 1500000
+#   ./check-ec2-usage.rb -r ${you_region} -i ${your_instance_id} --warning-over 80 --critical-over 90 --critical-under 5 --warning-under 10
 #
-# NOTES:
-#
-# LICENSE:
-#   Yohei Kawahara <inokara@gmail.com>
-#   Released under the same terms as Sensu (the MIT license); see LICENSE
-#   for details.
 #
 
 require 'sensu-plugin/check/cli'
@@ -54,12 +46,12 @@ class CheckEc2Usage< Sensu::Plugin::Check::CLI
          short:       '-i instance-id',
          long:        '--instance-id instance-ids',
          description: 'EC2 Instance ID to check.',
-         default:     '#{ec2metadata --instance-id}'
+         default:     `#{'ec2metadata --instance-id'}`.chomp
 
   option :start_time,
          short:       '-s T',
          long:        '--start-time TIME',
-         default:     Time.now - 300,
+         default:     Time.now - 3600,
          description: 'CloudWatch metric statistics start time'
 
   option :end_time,
@@ -75,9 +67,11 @@ class CheckEc2Usage< Sensu::Plugin::Check::CLI
          description: 'CloudWatch metric statistics period'
 
   %w(warning critical).each do |severity|
-    option :"#{severity}_over",
-           long:        "--#{severity}-over COUNT",
-           description: "Trigger a #{severity} if usage traffice is over specified Bytes"
+    %w(over under).each do |interval|
+      option :"#{severity}_#{interval}",
+             long:        "--#{severity}-#{interval} COUNT",
+             description: "Trigger a #{severity} if cpu usage is #{interval} specified percent"
+    end
   end
 
   def aws_config
@@ -108,8 +102,7 @@ class CheckEc2Usage< Sensu::Plugin::Check::CLI
       start_time: config[:start_time],
       end_time: config[:end_time],
       statistics: ['Average'],
-      period: config[:period],
-      unit: 'Bytes'
+      period: config[:period]
     )
   end
 
@@ -124,12 +117,14 @@ class CheckEc2Usage< Sensu::Plugin::Check::CLI
 
   def run
     metric_value = check_metric config[:instance_id]
-    if !metric_value.nil? && metric_value > config[:critical_over].to_f
-      critical "#{config[:direction]} at #{metric_value} Bytes"
-    elsif !metric_value.nil? && metric_value > config[:warning_over].to_f
-      warning "#{config[:direction]} at #{metric_value} Bytes"
+    if !metric_value.nil? && (metric_value > config[:critical_over].to_f || metric_value < config[:critical_under].to_f)
+      critical "#{config[:direction]} at #{metric_value}% CPU usage over the specified period"
+    elsif !metric_value.nil? && (metric_value > config[:warning_over].to_f || metric_value < config[:warnig_under].to_f)
+      warning "#{config[:direction]} at #{metric_value}% CPU usage over the specified period"
+    elsif !metric_value.nil?
+      ok "#{config[:direction]} at #{metric_value}% CPU usage over the specified period"
     else
-      ok "#{config[:direction]} at #{metric_value} Bytes"
+      ok "No data found"
     end
   end
 end
