@@ -51,7 +51,7 @@ class CheckEc2Usage < Sensu::Plugin::Check::CLI
   option :start_time,
          short:       '-s T',
          long:        '--start-time TIME',
-         default:     Time.now - 3600,
+         default:     Time.now - (3600 * 24),
          description: 'CloudWatch metric statistics start time'
 
   option :end_time,
